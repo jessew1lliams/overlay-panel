@@ -1,6 +1,119 @@
 <!DOCTYPE html>
-<html>
-<body style="margin:0; background:transparent;">
-  <img src="https://obsproject.com/assets/images/obs-logo.png" style="width:100%; height:auto;">
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Мод-оверлей</title>
+  <style>
+    body { margin: 0; padding: 0; background: transparent; }
+    #overlay-container { display: none; width: 100vw; height: 100vh; position: relative; }
+    #overlay-img { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 90%; max-height: 90%; object-fit: contain; }
+    #control-panel { display: none; width: 100vw; height: 100vh; background: #1e1e1e; color: #fff; font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    #control-panel input, #control-panel button { font-size: 18px; padding: 10px; margin: 10px; border: none; border-radius: 5px; }
+    #control-panel button { background: #6441a5; color: white; cursor: pointer; }
+    #debug { color: yellow; margin-top: 20px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div id="overlay-container">
+    <img id="overlay-img" src="" alt="Ожидание"/>
+  </div>
+  <div id="control-panel">
+    <div id="secret-prompt">
+      <h2>Секретный ключ</h2>
+      <input type="password" id="secret-input" placeholder="Введи ключ"/>
+      <button onclick="checkSecret()">Войти</button>
+    </div>
+    <div id="control-interface" style="display:none; text-align:center;">
+      <h2>Управление картинкой</h2>
+      <input type="text" id="image-url" placeholder="https://i.imgur.com/abc.png"/>
+      <br/>
+      <button onclick="showImage()">Показать</button>
+      <button onclick="hideImage()">Скрыть</button>
+      <button onclick="logout()">Выйти</button>
+      <div id="debug"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAIZ1bv6Y7rcewQGawT9GQ3pRTFWAOBlM8",
+      authDomain: "jessew1lliams-obs-overlay.firebaseapp.com",
+      databaseURL: "https://jessew1lliams-obs-overlay-default-rtdb.firebaseio.com",
+      projectId: "jessew1lliams-obs-overlay",
+      storageBucket: "jessew1lliams-obs-overlay.firebasestorage.app",
+      messagingSenderId: "667569134090",
+      appId: "1:667569134090:web:0538a6d1e30b2721b01df3",
+      measurementId: "G-5MF32Y6GDB"
+    };
+    const SECRET = "obsjessewlolxd";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const imageRef = ref(db, '/currentImage');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+
+    if (mode === 'overlay') {
+      document.getElementById('overlay-container').style.display = 'block';
+      document.getElementById('control-panel').style.display = 'none';
+      const imgEl = document.getElementById('overlay-img');
+      
+      async function refreshImage() {
+        try {
+          const snapshot = await get(ref(db, '/currentImage'));
+          const data = snapshot.val();
+          console.log('Обновление картинки, данные из базы:', data);
+          if (data && data.url) {
+            imgEl.src = data.url;
+            imgEl.style.display = 'block';
+          } else {
+            imgEl.src = '';
+            imgEl.style.display = 'none';
+          }
+        } catch (e) {
+          console.error('Ошибка при получении картинки:', e);
+        }
+      }
+      
+      // Запрашиваем сразу и потом каждые 2 секунды
+      refreshImage();
+      setInterval(refreshImage, 2000);
+      
+    } else if (mode === 'control') {
+      document.getElementById('overlay-container').style.display = 'none';
+      document.getElementById('control-panel').style.display = 'flex';
+      window.checkSecret = function() {
+        if (document.getElementById('secret-input').value === SECRET) {
+          document.getElementById('secret-prompt').style.display = 'none';
+          document.getElementById('control-interface').style.display = 'block';
+        } else { alert('Неверный ключ!'); }
+      };
+      window.showImage = function() {
+        const url = document.getElementById('image-url').value.trim();
+        if (!url) { alert('Вставь URL картинки'); return; }
+        const payload = { url: url, secret: SECRET };
+        document.getElementById('debug').innerText = 'Отправляю: ' + JSON.stringify(payload);
+        set(imageRef, payload)
+          .then(() => { document.getElementById('debug').innerText = 'Успешно!'; })
+          .catch(e => { document.getElementById('debug').innerText = 'Ошибка: ' + e.message; });
+      };
+      window.hideImage = function() {
+        set(imageRef, null);
+        document.getElementById('debug').innerText = 'Скрыто';
+      };
+      window.logout = function() {
+        document.getElementById('secret-prompt').style.display = 'block';
+        document.getElementById('control-interface').style.display = 'none';
+        document.getElementById('secret-input').value = '';
+        document.getElementById('debug').innerText = '';
+      };
+    } else {
+      document.body.innerHTML = '<h1 style="text-align:center; margin-top:100px;">Добавь ?mode=overlay или ?mode=control к URL</h1>';
+    }
+  </script>
 </body>
 </html>
